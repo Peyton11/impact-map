@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leaflet with EONET API and Dropdown</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    #map {
+      height: 90vh; /* Map takes most of the screen */
+      width: 100%;
+    }
+    #controls {
+      padding: 10px;
+      background: white;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <label for="category">Select Event Category:</label>
+    <select id="category">
+      <option value="wildfires">Wildfires</option>
+      <option value="volcanoes">Volcanoes</option>
+      <option value="severeStorms">Severe Storms</option>
+    </select>
+    <button id="load-events">Load Events</button>
+  </div>
+  <div id="map"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Initialize the map
+    const map = L.map('map').setView([0, 0], 2); // Center at lat=0, lng=0, zoom=2
+
+    // Add a tile layer (OpenStreetMap)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Marker group to manage markers dynamically
+    const markerGroup = L.layerGroup().addTo(map);
+
+    // Function to fetch and display events
+    const loadEvents = (category) => {
+      const EONET_API_URL = `https://eonet.gsfc.nasa.gov/api/v3/events?category=${category}&status=open`;
+
+      // Clear previous markers
+      markerGroup.clearLayers();
+
+      fetch(EONET_API_URL)
+        .then(response => response.json())
+        .then(data => {
+          if (data.events.length > 0) {
+            data.events.forEach(event => {
+              const geometry = event.geometry[0]; // Use the first geometry point
+              const [longitude, latitude] = geometry.coordinates; // Extract coordinates
+
+              // Add a marker for each event
+              L.marker([latitude, longitude])
+                .addTo(markerGroup)
+                .bindPopup(`<strong>${event.title}</strong><br>${event.description || 'No description available.'}`);
+            });
+
+            // Center map to the first event
+            const firstEvent = data.events[0].geometry[0];
+            map.setView([firstEvent.coordinates[1], firstEvent.coordinates[0]], 4);
+          } else {
+            alert(`No events found for category: ${category}`);
+          }
+        })
+        .catch(error => console.error('Error fetching EONET API data:', error));
+    };
+
+    // Event listener for the "Load Events" button
+    document.getElementById('load-events').addEventListener('click', () => {
+      const selectedCategory = document.getElementById('category').value;
+      loadEvents(selectedCategory);
+    });
+  </script>
+</body>
+</html>
+
